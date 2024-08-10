@@ -20,11 +20,21 @@ class RecipespiderSpider(scrapy.Spider):
                 continue  # Skip if already processed
             processed_categories.add(category)  # Mark this category as processed
 
-            subcategories = detail.css("ul.sub-menu a.menu-item-title span::text").getall()
+            subcategories = detail.css("ul.sub-menu li.menu-item a.menu-item-title")
 
             for subcategory in subcategories:
-                data.append({"Category": category, "Subcategory": subcategory})
+                subcategory_name = subcategory.css("span::text").get()  # Extract the subcategory name
+                link = subcategory.css("::attr(href)").get()  # Get the href attribute
+                
+                data.append({
+                    "Category": category,
+                    "Subcategory": subcategory_name,
+                    "Link": link
+                })
 
+                if link:
+                    yield scrapy.Request(response.urljoin(link), callback=self.parse_subcategory, meta={'category': category, 'subcategory': subcategory_name})
+                
         df = pd.DataFrame(data)
         # df.to_csv("categories_and_subcategories.csv", index=False)
         print(df)
@@ -32,3 +42,10 @@ class RecipespiderSpider(scrapy.Spider):
         connection_string = f"postgresql://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}"
         engine = create_engine(connection_string)
         df.to_sql("recipe_categories", engine, if_exists="replace", index=False)
+
+
+    def parse_subcategory(self, response):
+        category = response.meta['category']
+        subcategory = response.meta['subcategory']
+
+        pass
