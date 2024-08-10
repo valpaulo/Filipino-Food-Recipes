@@ -1,0 +1,23 @@
+Category,Subcategory
+Course,Breakfast
+Course,Lunch
+Course,Appetizers
+Course,Dessert
+Course,Dinner
+Ingredient,Chicken
+Ingredient,Pork
+Ingredient,Beef
+Ingredient,Turkey
+Ingredient,Vegetable
+Ingredient,Fish
+Ingredient,Rice
+Ingredient,Egg
+Ingredient,Tofu
+Ingredient,Noodles
+Type,Adobo
+Type,Bread
+Type,Fried Chicken
+Type,Sinigang
+Type,Kilawin
+Type,Ginataan
+Type,Kaldereta
