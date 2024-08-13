@@ -3,16 +3,16 @@ import pandas as pd
 from sqlalchemy import create_engine
 from postgresconfig import USERNAME, PASSWORD, HOST, PORT, DATABASE
 
-class RecipespiderSpider(scrapy.Spider):
-    name = "recipespider"
+class RecipespiderSpiderv2(scrapy.Spider):
+    name = "recipespiderv2"
     allowed_domains = ["panlasangpinoy.com"]
-    start_urls = ["https://panlasangpinoy.com/recipes/"]
+    start_urls = ["https://panlasangpinoy.com/categories/recipes/"]
 
     def __init__(self, *args, **kwargs):
-        super(RecipespiderSpider, self).__init__(*args, **kwargs)
+        super(RecipespiderSpiderv2, self).__init__(*args, **kwargs)
         self.data_batch = []  # Temporary storage for batch processing
         self.batch_size = 1000  # Adjust batch size based on your system capabilities
-        self.csv_file = "all_recipes.csv"
+        self.csv_file = "all_recipes_v2.csv"
 
         # Initialize the connection to the database
         connection_string = f"postgresql://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}"
@@ -20,54 +20,31 @@ class RecipespiderSpider(scrapy.Spider):
 
         # Initialize the CSV file with headers if it doesn't exist
         with open(self.csv_file, "w") as f:
-            f.write("Category,Subcategory,Recipe,Recipe Link,Course,Cuisine,Keyword,Servings,Author,Ingredient List,Instructions,Calories,Carbohydrates,Protein,Fat,Saturated Fat,Polyunsaturated Fat,Monounsaturated Fat,Trans Fat,Cholesterol,Sodium,Potassium,Fiber,Sugar,Vitamin A,Vitamin C,Calcium,Iron\n")
+            f.write("Recipe Link,Recipe Name,Course,Cuisine,Keyword,Servings,Author,Ingredient List,Instructions,Calories,Carbohydrates,Protein,Fat,Saturated Fat,Polyunsaturated Fat,Monounsaturated Fat,Trans Fat,Cholesterol,Sodium,Potassium,Fiber,Sugar,Vitamin A,Vitamin C,Calcium,Iron\n")
 
     def parse(self, response):
-        processed_categories = set()
-
-        for detail in response.css("details.sub-menu-toggle"):
-            category = detail.css("summary.menu-item-title span::text").get()
-
-            if category in processed_categories:
-                continue  # Skip if already processed_categories
-            processed_categories.add(category)  # Mark this category as processed
-            subcategories = detail.css("ul.sub-menu li.menu-item a.menu-item-title")
-
-            for subcategory in subcategories:
-                subcategory_name = subcategory.css("span::text").get()  # Extract the subcategory name
-                link = subcategory.css("::attr(href)").get()  # Get the href attribute
-
-                if link:
-                    yield response.follow(link, callback=self.parse_subcategory, meta={'category': category, 'subcategory': subcategory_name})
-
-    def parse_subcategory(self, response):
-        category = response.meta['category']
-        subcategory = response.meta['subcategory']
         recipe_links = response.css("a.entry-title-link::attr(href)").getall()
         recipe_titles = response.css("a.entry-title-link::text").getall()
 
         for title, link in zip(recipe_titles, recipe_links):
-            yield response.follow(link, callback=self.parse_recipe, meta={'category': category, 'subcategory': subcategory, 'recipe': title})
+            yield response.follow(link, callback=self.parse_recipe, meta={'recipe': title})
 
         next_page = response.css("li.pagination-next a::attr(href)").get()
         if next_page:
-            print(next_page)
-            yield response.follow(next_page, callback=self.parse_subcategory, meta={'category': category, 'subcategory': subcategory})
+            yield response.follow(next_page, callback=self.parse)
+
+    def parse_subcategory(self, response):
+        pass
+
 
 
     def parse_recipe(self, response):
-        category = response.meta['category']
-        subcategory = response.meta['subcategory']
         recipe = response.meta['recipe']
-
         recipe_details = response.css("div.oc-recipe-buttons a.wprm-recipe-print::attr(href)").get()
-        yield response.follow(recipe_details, callback=self.parse_recipe_details, meta={'category': category, 'subcategory': subcategory, 'recipe': recipe})
+        yield response.follow(recipe_details, callback=self.parse_recipe_details, meta={'recipe': recipe})
 
     def parse_recipe_details(self, response):
-        category = response.meta['category']
-        subcategory = response.meta['subcategory']
         link = response.url
-
         recipe_name = response.css("h2.wprm-recipe-name::text").get()
         course = response.css("span.wprm-recipe-course::text").get()
         cuisine = response.css("span.wprm-recipe-cuisine::text").get()
@@ -152,8 +129,6 @@ class RecipespiderSpider(scrapy.Spider):
 
 
         final_data = {
-            "category": category,
-            "subcategory": subcategory,
             "recipe_link": link,
             "recipe_name": recipe_name,
             "course": course,
@@ -170,5 +145,5 @@ class RecipespiderSpider(scrapy.Spider):
 
         df = pd.DataFrame([final_data])
         df.to_csv(self.csv_file, mode="a", header=False, index=False)
-        df.to_sql("all_recipe_details", self.engine, if_exists="append", index=False)
+        df.to_sql("all_recipe_details_v2", self.engine, if_exists="append", index=False)
 
